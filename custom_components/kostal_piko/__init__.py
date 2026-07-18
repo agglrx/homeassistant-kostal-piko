@@ -2,6 +2,7 @@
 from datetime import timedelta
 import logging
 from math import ceil
+from typing import Any
 
 from kostal import InfoVersions, Piko, SettingsGeneral
 
@@ -15,7 +16,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = [Platform.SENSOR]
+EVENTS_KEY = "events"
+PLATFORMS = [Platform.SENSOR, Platform.EVENT]
 DEVICE_INFO_IDS = [
     SettingsGeneral.INVERTER_NAME,
     SettingsGeneral.INVERTER_MAKE,
@@ -66,6 +68,7 @@ class PikoUpdateCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.piko: Piko = piko
         self._fetch: list[int] = []
+        self._fetch_events = False
 
         super().__init__(
             self.hass, _LOGGER, name=DOMAIN, update_interval=update_interval
@@ -81,7 +84,15 @@ class PikoUpdateCoordinator(DataUpdateCoordinator):
         if dxs_id in self._fetch:
             self._fetch.remove(dxs_id)
 
-    async def _async_update_data(self) -> dict[int, str]:
+    def start_fetch_events(self) -> None:
+        """Fetch inverter events on each coordinator update."""
+        self._fetch_events = True
+
+    def stop_fetch_events(self) -> None:
+        """Stop fetching inverter events."""
+        self._fetch_events = False
+
+    async def _async_update_data(self) -> dict[Any, Any]:
         """Fetch data from API endpoint."""
         to_fetch = []
         to_fetch.extend(self._fetch)
@@ -113,5 +124,17 @@ class PikoUpdateCoordinator(DataUpdateCoordinator):
 
         if len(return_data) == 0 and exception_count > 0:
             raise UpdateFailed()
+
+        if self._fetch_events:
+            try:
+                return_data[EVENTS_KEY] = await self.piko.infoEvents.events()
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.warning(
+                    "Fetching inverter events failed. Error message: %s",
+                    err,
+                    exc_info=True,
+                )
+                if len(return_data) == 0:
+                    raise UpdateFailed() from err
 
         return return_data
