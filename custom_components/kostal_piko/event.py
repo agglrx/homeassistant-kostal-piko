@@ -1,4 +1,6 @@
 """Kostal Piko events."""
+import logging
+
 import kostal
 
 from homeassistant.components.event import EventEntity
@@ -11,6 +13,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import EVENTS_KEY, PikoUpdateCoordinator
 from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 
 EVENT_TYPE_INVERTER_EVENT = "inverter_event"
 
@@ -60,6 +64,10 @@ class KostalPikoEvent(CoordinatorEntity[PikoUpdateCoordinator], EventEntity):
         await super().async_added_to_hass()
         self.coordinator.start_fetch_events()
         self._seen_events.update(self._event_ids(self.coordinator.data))
+        _LOGGER.debug(
+            "Kostal Piko event entity added with %i existing events already seen",
+            len(self._seen_events),
+        )
 
     async def async_will_remove_from_hass(self) -> None:
         """Unregister this entity from the Update Coordinator."""
@@ -79,21 +87,34 @@ class KostalPikoEvent(CoordinatorEntity[PikoUpdateCoordinator], EventEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         if self.coordinator.data is None or EVENTS_KEY not in self.coordinator.data:
+            _LOGGER.debug("Kostal Piko coordinator update has no event data yet")
             return
 
         events = self.coordinator.data[EVENTS_KEY]
         if not self._initialized:
             self._seen_events.update(self._event_ids(self.coordinator.data))
             self._initialized = True
+            _LOGGER.debug(
+                "Initialized Kostal Piko event entity with %i baseline events",
+                len(self._seen_events),
+            )
             self.async_write_ha_state()
             return
 
+        new_events = 0
         for event in reversed(events):
             event_id = self._event_id(event)
             if event_id in self._seen_events:
                 continue
 
             self._seen_events.add(event_id)
+            new_events += 1
+            _LOGGER.debug(
+                "Triggering Kostal Piko event: timestamp=%s code=%s env=%s",
+                event.timestamp,
+                event.code,
+                event.env,
+            )
             self._trigger_event(
                 EVENT_TYPE_INVERTER_EVENT,
                 {
@@ -104,6 +125,12 @@ class KostalPikoEvent(CoordinatorEntity[PikoUpdateCoordinator], EventEntity):
                 },
             )
             self.async_write_ha_state()
+
+        if new_events == 0:
+            _LOGGER.debug(
+                "No new Kostal Piko events found; %i events are already seen",
+                len(self._seen_events),
+            )
 
     @staticmethod
     def _event_ids(data) -> set[tuple[int, int, str]]:

@@ -128,6 +128,10 @@ class PikoUpdateCoordinator(DataUpdateCoordinator):
         if self._fetch_events:
             try:
                 return_data[EVENTS_KEY] = await self.piko.infoEvents.events()
+                _LOGGER.debug(
+                    "Fetched %i inverter events",
+                    len(return_data[EVENTS_KEY]),
+                )
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.warning(
                     "Fetching inverter events failed. Error message: %s",
