@@ -18,6 +18,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 EVENT_TYPE_INVERTER_EVENT = "inverter_event"
+EVENT_TYPE_PREFIX = "event_"
 ATTR_CODE = "code"
 ATTR_DATE = "date"
 ATTR_ENV = "env"
@@ -49,7 +50,6 @@ class KostalPikoEvent(
 ):
     """A Kostal Piko event entity updated using a DataUpdateCoordinator."""
 
-    _attr_event_types = [EVENT_TYPE_INVERTER_EVENT]
     _attr_has_entity_name = True
     _attr_name = "Event"
 
@@ -65,6 +65,7 @@ class KostalPikoEvent(
             f"{coordinator.data[kostal.InfoVersions.SERIAL_NUMBER]}_events"
         )
         self._initialized = False
+        self._event_types = {EVENT_TYPE_INVERTER_EVENT}
         self._restored_event_id: tuple[int, int, str] | None = None
         self._seen_events: set[tuple[int, int, str]] = set()
 
@@ -75,6 +76,8 @@ class KostalPikoEvent(
             self._restored_event_id = self._event_id_from_attributes(
                 last_state.attributes
             )
+            if last_state.state not in (None, "unknown", "unavailable"):
+                self._event_types.add(last_state.state)
             if self._restored_event_id is not None:
                 self._seen_events.add(self._restored_event_id)
 
@@ -97,6 +100,11 @@ class KostalPikoEvent(
             and self.coordinator.data is not None
             and EVENTS_KEY in self.coordinator.data
         )
+
+    @property
+    def event_types(self) -> list[str]:
+        """Return the possible event types."""
+        return sorted(self._event_types)
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -177,13 +185,19 @@ class KostalPikoEvent(
             event.code,
             event.env,
         )
-        self._trigger_event(EVENT_TYPE_INVERTER_EVENT, self._event_attributes(event))
+        event_type = self._event_type(event)
+        self._event_types.add(event_type)
+        self._trigger_event(event_type, self._event_attributes(event))
         self.async_write_ha_state()
         return True
 
     @staticmethod
     def _event_id(event) -> tuple[int, int, str]:
         return (event.timestamp, event.code, event.env)
+
+    @staticmethod
+    def _event_type(event) -> str:
+        return f"{EVENT_TYPE_PREFIX}{event.code}"
 
     @staticmethod
     def _event_attributes(event) -> dict[str, int | str]:
