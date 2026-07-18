@@ -18,12 +18,49 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 EVENT_TYPE_INVERTER_EVENT = "inverter_event"
-EVENT_TYPE_PREFIX = "event_"
 ATTR_CODE = "code"
 ATTR_DATE = "date"
+ATTR_DESCRIPTION = "description"
 ATTR_ENV = "env"
 ATTR_EVENT_ID = "event_id"
 ATTR_TIMESTAMP = "timestamp"
+
+EVENT_CODE_DESCRIPTIONS = {
+    4221: "Voltage mean value of the last 10 minutes too high",
+    4290: "The grid frequency has changed too quickly",
+    4300: "Internal system fault",
+    4301: "Internal system fault",
+    4302: "Internal system fault",
+    4303: "Internal system fault",
+    4304: "Internal system fault",
+    4321: "Defective EEPROM, forbidden memory access",
+    4322: "Software error",
+    4323: "Residual current",
+    4324: "Parameter error",
+    4325: "Parameter error",
+    4422: "Parameter error",
+    4424: "Parameter error",
+    4425: "Residual current",
+    4450: "Insulation fault",
+    4451: "Internal system fault",
+    4475: "Internal system fault",
+    4476: "Weak PV supply",
+    4800: "Internal system fault",
+    4801: "Insulation fault",
+    4802: "Internal system fault",
+    4803: "Insulation fault",
+    4804: "Insulation fault",
+    4805: "Internal system fault",
+    4810: "Internal system fault",
+    4850: "Energy supply company",
+    7503: "Internal system fault",
+}
+
+EVENT_CODE_DESCRIPTION_RANGES = (
+    (4340, 4354, "Internal system fault"),
+    (4360, 4421, "Residual current"),
+    (4870, 7500, "Internal system fault"),
+)
 
 
 async def async_setup_entry(
@@ -197,7 +234,7 @@ class KostalPikoEvent(
 
     @staticmethod
     def _event_type(event) -> str:
-        return f"{EVENT_TYPE_PREFIX}{event.code}"
+        return event_label(event.code)
 
     @staticmethod
     def _event_attributes(event) -> dict[str, int | str]:
@@ -206,6 +243,7 @@ class KostalPikoEvent(
             ATTR_TIMESTAMP: event.timestamp,
             ATTR_DATE: event.date.isoformat(),
             ATTR_CODE: event.code,
+            ATTR_DESCRIPTION: event_description(event.code),
             ATTR_ENV: event.env,
         }
 
@@ -221,3 +259,20 @@ class KostalPikoEvent(
             return (int(timestamp), int(code), str(env))
         except (TypeError, ValueError):
             return None
+
+
+def event_label(code: int) -> str:
+    """Return the display label for a Kostal Piko event code."""
+    return f"{code}: {event_description(code)}"
+
+
+def event_description(code: int) -> str:
+    """Return the manual description for a Kostal Piko event code."""
+    if code in EVENT_CODE_DESCRIPTIONS:
+        return EVENT_CODE_DESCRIPTIONS[code]
+
+    for start, end, description in EVENT_CODE_DESCRIPTION_RANGES:
+        if start <= code <= end:
+            return description
+
+    return "Unknown event"

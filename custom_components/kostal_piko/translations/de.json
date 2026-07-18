@@ -36,10 +36,12 @@
         "state": {
           "unknown": "Unbekannt",
           "off": "Aus",
-          "idle": "Leerlauf",
+          "standby": "Standby",
           "starting": "Startend",
-          "feed_in": "Einspeisung (MPP)",
+          "feed_in_mpp": "Einspeisung (MPP)",
           "feed_in_limited": "Einspeisung (abgeregelt)",
+          "feed_in": "Einspeisung",
+          "dc_voltage_low": "DC-Spannung niedrig",
           "insulation_measurement": "Isolationsmessung",
           "waiting_time": "Wartezeit aktiv"
         }

@@ -31,10 +31,12 @@ CONDITION_MAP_BATTERY_STATUS = {0: "charging", 1: "discharging"}
 
 CONDITION_MAP_INVERTER_STATUS = {
     0: "off",
-    1: "idle",
+    1: "standby",
     2: "starting",
-    3: "feed_in",
+    3: "feed_in_mpp",
     4: "feed_in_limited",
+    5: "feed_in",
+    6: "dc_voltage_low",
     7: "insulation_measurement",
     8: "waiting_time",
 }
